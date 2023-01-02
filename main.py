@@ -28,21 +28,25 @@ for pkt in scapy_cap:
     #    macToIp[pkt[ARP].hwdst] = pkt[ARP].pdst
     #    hostToGatewayTuples.add((pkt[ARP].hwdst, pkt[ARP].hwsrc))"""
 
-ips = packet_analyzer.demo_addresses()
-# packets observed between addresses
-interactions = packet_analyzer.demo_interactions()
+pcap_path = "C:\\Users\\Carlos\\Desktop\\Carlos Kassis\\PCAPs\\qwe.pcap"
+
+info = packet_analyzer.analyze(pcap_path)
+
+entities = info["entities"]
+interactions = info["interactions"]
 
 #ARP_IS_AT = 2
 
 network = ipaddress.ip_network('192.168.0.0/16') # hardcoded subnet, need to add support later for multiple subnets
 
 graphData = []
-subnetSize = sum(1 for ip in ips if ipaddress.ip_address(ip) in network)
-internetSize = len(ips) - subnetSize
+subnetSize = sum(1 for ip in entities if ipaddress.ip_address(ip) in network)
+internetSize = len(entities) - subnetSize
 
 # TODO: class for position generation, ASAP!
 angle_subnet, angle_internet = 0.0, 0.0
-for ip in ips:
+
+for ip in entities:
     in_subnet = ipaddress.ip_address(ip) in network
     if in_subnet:
         angle_subnet += 360.0 / subnetSize
@@ -56,7 +60,7 @@ for ip in ips:
     y = 0 if ip == gateway_address else radius * math.sin(angle * (math.pi / 180.0))
 
     classes = 'subnet-node' if ipaddress.ip_address(ip) in network else 'internet-node'
-    graphData.append({'data': {'id': ip, 'label': ip}, 'position': {'x': x, 'y': y }, 'classes': classes})
+    graphData.append({'data': {'id': ip, 'label': entities[ip]["hostname"]}, 'position': {'x': x, 'y': y }, 'classes': classes})
 
 for edge in interactions:
     subnet_host_gateway_relation = (ipaddress.ip_address(edge[0]) in network) and (ipaddress.ip_address(edge[1]) in network) and (edge[0] == '192.168.1.1')
@@ -121,4 +125,4 @@ app.layout = html.Div(
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+   app.run_server(debug=True)
