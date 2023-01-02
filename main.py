@@ -37,15 +37,17 @@ interactions = packet_analyzer.demo_interactions()
 network = ipaddress.ip_network('192.168.0.0/16') # hardcoded subnet, need to add support later for multiple subnets
 
 graphData = []
+subnetSize = sum(1 for ip in ips if ipaddress.ip_address(ip) in network)
+internetSize = len(ips) - subnetSize
 
 # TODO: class for position generation, ASAP!
 angle_subnet, angle_internet = 0.0, 0.0
 for ip in ips:
     in_subnet = ipaddress.ip_address(ip) in network
     if in_subnet:
-        angle_subnet += 40.0
+        angle_subnet += 360.0 / subnetSize
     else:
-        angle_internet += 4.25
+        angle_internet += 360.0 / internetSize
     
     radius = 200 if in_subnet else 1000
     angle = angle_subnet if in_subnet else angle_internet
