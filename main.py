@@ -1,13 +1,13 @@
+import base64
 from dash import Dash, html, dcc
+from dash.dependencies import Input, Output, State
 import dash_cytoscape as cyto
-from scapy.all import *
-from scapy import *
 import ipaddress
 import math
 import packet_analyzer
-from dash.dependencies import Input, Output, State
+from scapy.all import *
+from scapy import *
 from werkzeug.utils import secure_filename
-import base64
 
 # might start using DHCP and ARP to identify hosts and gateways
 """scapy_cap = PcapReader(pcapPath)
@@ -30,11 +30,15 @@ for pkt in scapy_cap:
 
 app = Dash(__name__)
 desktop_path = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
-pcap_path = os.path.join(desktop_path, "network.pcap")
+pcap_upload_path = os.path.join(desktop_path, 'PcapUploads')
 
-def update_graph(path):
-    info = packet_analyzer.analyze(pcap_path)
+def get_graph_element_data(pcap_path):
 
+    try:
+        info = packet_analyzer.analyze(pcap_path)
+    except:
+        return "Invalid capture file"
+        
     entities = info["entities"]
     interactions = info["interactions"]
 
@@ -114,7 +118,12 @@ def update_graph(path):
 
     # TODO: use static files
     # TODO: make pretty design
-    app.layout = html.Div(
+    return html.Div(
+        [
+            cytoscape_element
+        ])
+
+app.layout = html.Div(
         [
             html.H2("Traffic analysis:"),
             dcc.Upload(
@@ -136,16 +145,13 @@ def update_graph(path):
                 # Allow multiple files to be uploaded
                 multiple=False
             ),
-            html.Div(id='output-data-upload'),
-            cytoscape_element
+            html.Div(id='output-data-upload')
         ],
         style = {
             'background':'radial-gradient(#FFFFFF 25%, #BBBBBB 95%)',
             'width': '100%',
             'height': '100%'
         })
-
-update_graph(pcap_path)
 
 @app.callback(Output('output-data-upload', 'children'),
               [Input('upload-data', 'contents')],
@@ -155,14 +161,18 @@ def update_output(content, name, date):
     if content is None:
         return
 
-    file_path = os.path.join(desktop_path, secure_filename(name))
-    print(file_path)
-    octet_stream = content[content.index(',')+1:]
+    if not os.path.exists(pcap_upload_path):
+        os.makedirs(pcap_upload_path)
+
+    file_path = os.path.join(pcap_upload_path, secure_filename(name))
+    octet_stream = content[content.index(',')+1:] # string looks like "octet-stream;base64 ....,[BASE64_DATA]"
     binary_data = base64.b64decode(octet_stream)
+
+    # TODO: currently files pile up and get overwritten
     with open(file_path, "wb") as fh:
         fh.write(binary_data)
     
-    # Need to return HTML here
+    return get_graph_element_data(file_path)
 
 if __name__ == "__main__":
    app.run_server(debug=True)
