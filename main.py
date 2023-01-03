@@ -1,14 +1,14 @@
-from dash import Dash, html
+from dash import Dash, html, dcc
 import dash_cytoscape as cyto
 from scapy.all import *
 from scapy import *
 import ipaddress
 import math
 import packet_analyzer
+from dash.dependencies import Input, Output, State
+from werkzeug.utils import secure_filename
+import base64
 
-#pcapPath = ...
-
-# TODO: class for data extraction from packets
 # might start using DHCP and ARP to identify hosts and gateways
 """scapy_cap = PcapReader(pcapPath)
 for pkt in scapy_cap:
@@ -28,101 +28,141 @@ for pkt in scapy_cap:
     #    macToIp[pkt[ARP].hwdst] = pkt[ARP].pdst
     #    hostToGatewayTuples.add((pkt[ARP].hwdst, pkt[ARP].hwsrc))"""
 
-pcap_path = "C:\\Users\\Carlos\\Desktop\\Carlos Kassis\\PCAPs\\qwe.pcap"
-
-info = packet_analyzer.analyze(pcap_path)
-
-entities = info["entities"]
-interactions = info["interactions"]
-
-#ARP_IS_AT = 2
-
-network = ipaddress.ip_network('192.168.0.0/16') # hardcoded subnet, need to add support later for multiple subnets
-
-graphData = []
-subnetSize = sum(1 for ip in entities if ipaddress.ip_address(ip) in network)
-internetSize = len(entities) - subnetSize
-
-# TODO: class for position generation, ASAP!
-angle_subnet, angle_internet = 0.0, 0.0
-
-for ip in entities:
-    in_subnet = ipaddress.ip_address(ip) in network
-    if in_subnet:
-        angle_subnet += 360.0 / subnetSize
-    else:
-        angle_internet += 360.0 / internetSize
-    
-    radius = 200 if in_subnet else 1000
-    angle = angle_subnet if in_subnet else angle_internet
-    gateway_address = '192.168.1.1'
-    x = 0 if ip == gateway_address else radius * math.cos(angle * (math.pi / 180.0))
-    y = 0 if ip == gateway_address else radius * math.sin(angle * (math.pi / 180.0))
-
-    classes = 'subnet-node' if ipaddress.ip_address(ip) in network else 'internet-node'
-    graphData.append({'data': {'id': ip, 'label': entities[ip]["hostname"]}, 'position': {'x': x, 'y': y }, 'classes': classes})
-
-for edge in interactions:
-    subnet_host_gateway_relation = (ipaddress.ip_address(edge[0]) in network) and (ipaddress.ip_address(edge[1]) in network) and (edge[0] == '192.168.1.1')
-    graphData.append({'data': {'source': edge[0], 'target': edge[1]}, 'classes': ('subnet-edge' if subnet_host_gateway_relation else 'internet-edge') })
-
-cytoscape_element = cyto.Cytoscape(
-        id = 'network-graphs-x-cytoscape',
-        elements = graphData,
-        layout = {
-            'name': 'preset'
-        },
-        style = {
-            'height':'1000px',
-            'width':'100%',
-        },
-        # TODO: generate css classes for different subnets
-        stylesheet=[
-            {
-                'selector': '.subnet-edge',
-                'style': {
-                    'line-color': 'blue'
-                }
-            },
-            {
-                'selector': '.subnet-node',
-                'style': {
-                    'content': 'data(label)',
-                    'background-color': 'blue'
-                    #'border-color': 'blue'
-                }
-            },
-            {
-                'selector': '.internet-edge',
-                'style': {
-                    'line-color': 'orange'
-                }
-            },
-            {
-                'selector': '.internet-node',
-                'style': {
-                    'content': 'data(label)',
-                    'background-color': 'orange'
-                }
-            }
-        ]
-    )
-
 app = Dash(__name__)
+desktop_path = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+pcap_path = os.path.join(desktop_path, "network.pcap")
 
-# TODO: use static files
-# TODO: make pretty design
-app.layout = html.Div(
-    [
-        html.H2("Traffic analysis:"),
-        cytoscape_element
-    ],
-    style = {
-        'background':'radial-gradient(#FFFFFF 25%, #BBBBBB 95%)',
-        'width': '100%',
-        'height': '100%'
-    })
+def update_graph(path):
+    info = packet_analyzer.analyze(pcap_path)
 
+    entities = info["entities"]
+    interactions = info["interactions"]
+
+    #ARP_IS_AT = 2
+
+    network = ipaddress.ip_network('192.168.0.0/16') # hardcoded subnet, need to add support later for multiple subnets
+
+    graphData = []
+    subnetSize = sum(1 for ip in entities if ipaddress.ip_address(ip) in network)
+    internetSize = len(entities) - subnetSize
+
+    # TODO: class for position generation, ASAP!
+    angle_subnet, angle_internet = 0.0, 0.0
+
+    for ip in entities:
+        in_subnet = ipaddress.ip_address(ip) in network
+        if in_subnet:
+            angle_subnet += 360.0 / subnetSize
+        else:
+            angle_internet += 360.0 / internetSize
+        
+        radius = 200 if in_subnet else 1000
+        angle = angle_subnet if in_subnet else angle_internet
+        gateway_address = '192.168.1.1'
+        x = 0 if ip == gateway_address else radius * math.cos(angle * (math.pi / 180.0))
+        y = 0 if ip == gateway_address else radius * math.sin(angle * (math.pi / 180.0))
+
+        classes = 'subnet-node' if ipaddress.ip_address(ip) in network else 'internet-node'
+        label = entities[ip]["hostname"] if entities[ip]["hostname"] != None else ip
+        graphData.append({'data': {'id': ip, 'label': label}, 'position': {'x': x, 'y': y }, 'classes': classes})
+
+    for edge in interactions:
+        subnet_host_gateway_relation = (ipaddress.ip_address(edge[0]) in network) and (ipaddress.ip_address(edge[1]) in network) and (edge[0] == '192.168.1.1')
+        graphData.append({'data': {'source': edge[0], 'target': edge[1]}, 'classes': ('subnet-edge' if subnet_host_gateway_relation else 'internet-edge') })
+
+    cytoscape_element = cyto.Cytoscape(
+            id = 'network-graphs-x-cytoscape',
+            elements = graphData,
+            layout = {
+                'name': 'preset'
+            },
+            style = {
+                'height':'1000px',
+                'width':'100%',
+            },
+            # TODO: generate css classes for different subnets
+            stylesheet=[
+                {
+                    'selector': '.subnet-edge',
+                    'style': {
+                        'line-color': 'blue'
+                    }
+                },
+                {
+                    'selector': '.subnet-node',
+                    'style': {
+                        'content': 'data(label)',
+                        'background-color': 'blue'
+                        #'border-color': 'blue'
+                    }
+                },
+                {
+                    'selector': '.internet-edge',
+                    'style': {
+                        'line-color': 'orange'
+                    }
+                },
+                {
+                    'selector': '.internet-node',
+                    'style': {
+                        'content': 'data(label)',
+                        'background-color': 'orange'
+                    }
+                }
+            ]
+        )
+
+    # TODO: use static files
+    # TODO: make pretty design
+    app.layout = html.Div(
+        [
+            html.H2("Traffic analysis:"),
+            dcc.Upload(
+                id='upload-data',
+                children=html.Div([
+                    'Drag and Drop or ',
+                    html.A('Select Files')
+                ]),
+                style={
+                    'width': '100%',
+                    'height': '60px',
+                    'lineHeight': '60px',
+                    'borderWidth': '1px',
+                    'borderStyle': 'dashed',
+                    'borderRadius': '5px',
+                    'textAlign': 'center',
+                    'margin': '10px'
+                },
+                # Allow multiple files to be uploaded
+                multiple=False
+            ),
+            html.Div(id='output-data-upload'),
+            cytoscape_element
+        ],
+        style = {
+            'background':'radial-gradient(#FFFFFF 25%, #BBBBBB 95%)',
+            'width': '100%',
+            'height': '100%'
+        })
+
+update_graph(pcap_path)
+
+@app.callback(Output('output-data-upload', 'children'),
+              [Input('upload-data', 'contents')],
+              [State('upload-data', 'filename'),
+               State('upload-data', 'last_modified')])
+def update_output(content, name, date):
+    if content is None:
+        return
+
+    file_path = os.path.join(desktop_path, secure_filename(name))
+    print(file_path)
+    octet_stream = content[content.index(',')+1:]
+    binary_data = base64.b64decode(octet_stream)
+    with open(file_path, "wb") as fh:
+        fh.write(binary_data)
+    
+    # Need to return HTML here
 
 if __name__ == "__main__":
    app.run_server(debug=True)
