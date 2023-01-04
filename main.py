@@ -34,11 +34,8 @@ pcap_upload_path = os.path.join(desktop_path, 'PcapUploads')
 
 def get_graph_element_data(pcap_path):
 
-    try:
-        info = packet_analyzer.analyze(pcap_path)
-    except:
-        return "Invalid capture file"
-        
+    info = packet_analyzer.PacketAnalyzer(pcap_path).analyze()
+
     entities = info["entities"]
     interactions = info["interactions"]
 
@@ -116,12 +113,7 @@ def get_graph_element_data(pcap_path):
             ]
         )
 
-    # TODO: use static files
-    # TODO: make pretty design
-    return html.Div(
-        [
-            cytoscape_element
-        ])
+    return cytoscape_element
 
 app.layout = html.Div(
         [
