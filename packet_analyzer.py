@@ -76,11 +76,11 @@ class PacketAnalyzer:
         
     def analyze(self):
         try:
-            scapy_pcap = PcapReader(self.capture_file_path)
+            packets = PcapReader(self.capture_file_path)
         except:
             return "Invalid capture file"
 
-        for packet in scapy_pcap:
+        for packet in packets:
             self.try_add_distinct_node_ip(packet)
             self.try_get_ip_hostname_info(packet)
             self.try_add_interaction(packet)
