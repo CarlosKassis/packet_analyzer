@@ -134,7 +134,7 @@ app.layout = html.Div(
                     'textAlign': 'center',
                     'margin': '10px'
                 },
-                
+
                 multiple=False
             ),
             html.Div(id='output-data-upload')
@@ -153,7 +153,7 @@ def update_output(content, name, date):
     if content is None:
         return
 
-    os.makedirs(pcap_upload_path, True)
+    os.makedirs(pcap_upload_path, exist_ok = True)
 
     file_path = os.path.join(pcap_upload_path, secure_filename(name))
     octet_stream = content[content.index(',')+1:] # string looks like "octet-stream;base64 ....,[BASE64_DATA]"
