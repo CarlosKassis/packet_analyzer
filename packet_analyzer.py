@@ -93,7 +93,7 @@ class PacketAnalyzer:
             entity_info[ip] = {"hostname" : None if ip not in self.ip_to_hostname else self.ip_to_hostname[ip]}
         
         info["entities"] = entity_info
-        info["interactions"] = self.interactions
+        info["interactions"] = list(self.interactions)
         info["open_ports"] = list(self.open_ports)
 
         return dict(info)

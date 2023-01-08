@@ -3,8 +3,10 @@ from dash import Dash, html, dcc
 from dash.dependencies import Input, Output, State
 import dash_cytoscape as cyto
 import ipaddress
+import json
 import math
 import packet_analyzer
+from pathlib import Path
 from scapy.all import *
 from scapy import *
 from werkzeug.utils import secure_filename
@@ -31,10 +33,9 @@ for pkt in scapy_cap:
 app = Dash(__name__)
 desktop_path = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
 pcap_upload_path = os.path.join(desktop_path, 'PcapUploads')
+pcap_analysis_path = os.path.join(desktop_path, 'PcapAnalysis')
 
-def get_graph_element_data(pcap_path):
-
-    info = packet_analyzer.PacketAnalyzer(pcap_path).analyze()
+def get_graph_element_data(info):
 
     entities = info["entities"]
     interactions = info["interactions"]
@@ -149,21 +150,31 @@ app.layout = html.Div(
               [Input('upload-data', 'contents')],
               [State('upload-data', 'filename'),
                State('upload-data', 'last_modified')])
-def update_output(content, name, date):
+def update_output(content, uploaded_file_name, date):
     if content is None:
         return
 
     os.makedirs(pcap_upload_path, exist_ok = True)
+    os.makedirs(pcap_analysis_path, exist_ok = True)
 
-    file_path = os.path.join(pcap_upload_path, secure_filename(name))
+    capture_file_path = os.path.join(pcap_upload_path, secure_filename(uploaded_file_name))
     octet_stream = content[content.index(',')+1:] # string looks like "octet-stream;base64 ....,[BASE64_DATA]"
     binary_data = base64.b64decode(octet_stream)
 
     # TODO: currently files pile up and get overwritten
-    with open(file_path, "wb") as fh:
+    with open(capture_file_path, "wb") as fh:
         fh.write(binary_data)
     
-    return get_graph_element_data(file_path)
+    info = packet_analyzer.PacketAnalyzer(capture_file_path).analyze()
+
+    file_stem = Path(uploaded_file_name).stem
+    time_string = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+    analysis_file_name = f'{file_stem}{time_string}.json'
+
+    with open(os.path.join(pcap_analysis_path, analysis_file_name) , "w" ) as f:
+        json.dump(info , f, indent=4)
+
+    return get_graph_element_data(info)
 
 if __name__ == "__main__":
    app.run_server(debug=True)
