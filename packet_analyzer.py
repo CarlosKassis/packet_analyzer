@@ -7,8 +7,9 @@ class PacketAnalyzer:
         self.capture_file_path = capture_file_path
         self.ips = set()
         self.ip_to_hostname = dict()
+        self.ip_to_services = dict()
         self.interactions = set()
-        self.open_ports = set()
+
 
     def try_get_ip_hostname_info(self, packet):
         if not DNS in packet or not packet.qr == 1:
@@ -23,9 +24,10 @@ class PacketAnalyzer:
                 hostname = str(dnsrr.rrname, 'utf8')
                 ip = dnsrr.rdata
 
-                self.ip_to_hostname[ip] = hostname
+                self.ip_entity_info["hostname"]
         except:
             pass
+
 
     def black_listed_ip(self, ip):
         hardcoded_blacklisted_ips = { "0.0.0.0", "255.255.255.255",}
@@ -38,6 +40,7 @@ class PacketAnalyzer:
 
         return False
 
+
     def try_add_distinct_node_ip(self, packet):
         if not IP in packet:
             return
@@ -46,6 +49,7 @@ class PacketAnalyzer:
             self.ips.add(packet[IP].src)
         if not self.black_listed_ip(packet[IP].dst):
             self.ips.add(packet[IP].dst)
+
 
     def try_add_interaction(self, packet):
         if not IP in packet:
@@ -59,8 +63,9 @@ class PacketAnalyzer:
 
         self.interactions.add(( ip1, ip2 ) if ipaddress.ip_address(ip1) < ipaddress.ip_address(ip2) else ( ip2, ip1 ))
 
+
     def try_add_open_service_port(self, packet):
-        if not TCP in packet and not UDP in packet:
+        if (not TCP in packet and not UDP in packet) or not IP in packet:
             return
         
         # check ack flag
@@ -72,8 +77,13 @@ class PacketAnalyzer:
         if port >= 1024:
             return
 
-        self.open_ports.add(("TCP" if TCP in packet else "UDP", port))
-        
+        source_ip = packet[IP].src
+        if not source_ip in self.ip_to_services:
+             self.ip_to_services[source_ip] = set()
+
+        (self.ip_to_services[source_ip]).add(("TCP" if TCP in packet else "UDP", port))
+
+
     def analyze(self):
         try:
             packets = PcapReader(self.capture_file_path)
@@ -90,10 +100,12 @@ class PacketAnalyzer:
 
         entity_info = dict()
         for ip in self.ips:
-            entity_info[ip] = {"hostname" : None if ip not in self.ip_to_hostname else self.ip_to_hostname[ip]}
+            ip_entity_info = dict()
+            ip_entity_info["hostname"] = None if ip not in self.ip_to_hostname else self.ip_to_hostname[ip]
+            ip_entity_info["services"] = list() if ip not in self.ip_to_services else list(self.ip_to_services[ip])
+            entity_info[ip] = ip_entity_info
         
         info["entities"] = entity_info
         info["interactions"] = list(self.interactions)
-        info["open_ports"] = list(self.open_ports)
 
         return dict(info)
