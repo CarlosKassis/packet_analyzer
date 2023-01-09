@@ -1,16 +1,21 @@
 from scapy.all import *
 from scapy import *
 import ipaddress
+from scapy.layers.http import HTTP, HTTPRequest
 
 class PacketAnalyzer:
     def __init__(self, capture_file_path):
         self.capture_file_path = capture_file_path
+
         self.ips = set()
         self.ip_to_hostname = dict()
         self.ip_to_services = dict()
         self.interactions = set()
+        self.ip_to_subnet = dict()
+        self.subnet_to_info = dict()
+        self.ip_to_os = dict()
 
-
+    # Use DNS to get hostname associated with IP
     def try_get_ip_hostname_info(self, packet):
         if not DNS in packet or not packet.qr == 1:
             return
@@ -41,6 +46,7 @@ class PacketAnalyzer:
         return False
 
 
+    # Check source and destination IP
     def try_add_distinct_node_ip(self, packet):
         if not IP in packet:
             return
@@ -51,7 +57,8 @@ class PacketAnalyzer:
             self.ips.add(packet[IP].dst)
 
 
-    def try_add_interaction(self, packet):
+    # Check source and destination IP
+    def try_get_interaction(self, packet):
         if not IP in packet:
             return
 
@@ -63,8 +70,8 @@ class PacketAnalyzer:
 
         self.interactions.add(( ip1, ip2 ) if ipaddress.ip_address(ip1) < ipaddress.ip_address(ip2) else ( ip2, ip1 ))
 
-
-    def try_add_open_service_port(self, packet):
+    # Check used ports for TCP/UDP
+    def try_get_open_service_port(self, packet):
         if (not TCP in packet and not UDP in packet) or not IP in packet:
             return
         
@@ -84,6 +91,38 @@ class PacketAnalyzer:
         (self.ip_to_services[source_ip]).add(("TCP" if TCP in packet else "UDP", port))
 
 
+    # Use DHCP to get subnet info
+    def try_get_subnet_info(self, packet):
+        if not DHCP in packet:
+            return
+        
+        BOOTP_REPLY = 2
+        if packet[BOOTP].op != BOOTP_REPLY:
+            return
+
+        ip = packet[IP].dst
+
+        gateway = None
+        subnet_mask = None
+        for option in packet[DHCP].options:
+            if option[0] == "router":
+                gateway = option[1]
+            elif option[0] == "subnet_mask":
+                subnet_mask = option[1]
+
+        if gateway == None or subnet_mask == None:
+            return
+
+        subnet = ipaddress.ip_network(f'{gateway}/{subnet_mask}', strict=False)
+        subnet_str = str(subnet)
+        self.ip_to_subnet[ip] = subnet_str
+        
+        if subnet_str in self.subnet_to_info:
+            (self.subnet_to_info[subnet_str])["size"] += 1
+        else:
+            self.subnet_to_info[subnet_str] = { "gateway": gateway, "size": 1}
+
+
     def analyze(self):
         try:
             packets = PcapReader(self.capture_file_path)
@@ -93,19 +132,25 @@ class PacketAnalyzer:
         for packet in packets:
             self.try_add_distinct_node_ip(packet)
             self.try_get_ip_hostname_info(packet)
-            self.try_add_interaction(packet)
-            self.try_add_open_service_port(packet)
-        
+            self.try_get_interaction(packet)
+            self.try_get_open_service_port(packet)
+            self.try_get_subnet_info(packet)
+
         info = dict()
 
-        entity_info = dict()
+        MOST_LIKELY_SUBNET_MASK = '255.255.255.0'
+
+        entities = dict()
         for ip in self.ips:
-            ip_entity_info = dict()
-            ip_entity_info["hostname"] = None if ip not in self.ip_to_hostname else self.ip_to_hostname[ip]
-            ip_entity_info["services"] = list() if ip not in self.ip_to_services else list(self.ip_to_services[ip])
-            entity_info[ip] = ip_entity_info
+            entity_info = dict()
+            entity_info["hostname"] = None if ip not in self.ip_to_hostname else self.ip_to_hostname[ip]
+            entity_info["subnet"] = str(ipaddress.ip_network(f'{ip}/{MOST_LIKELY_SUBNET_MASK}', strict=False)) if ip not in self.ip_to_subnet else self.ip_to_subnet[ip]
+            entity_info["services"] = list() if ip not in self.ip_to_services else list(self.ip_to_services[ip])
+            entity_info["os"] = "Unknown" if ip not in self.ip_to_os else self.ip_to_os[ip]
+            entities[ip] = entity_info
         
-        info["entities"] = entity_info
+        info["entities"] = entities
         info["interactions"] = list(self.interactions)
+        info["subnets"] = self.subnet_to_info
 
         return dict(info)

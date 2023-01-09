@@ -36,11 +36,8 @@ pcap_upload_path = os.path.join(desktop_path, 'PcapUploads')
 pcap_analysis_path = os.path.join(desktop_path, 'PcapAnalysis')
 
 def get_graph_element_data(info):
-
     entities = info["entities"]
     interactions = info["interactions"]
-
-    #ARP_IS_AT = 2
 
     network = ipaddress.ip_network('192.168.0.0/16') # hardcoded subnet, need to add support later for multiple subnets
 
@@ -66,20 +63,20 @@ def get_graph_element_data(info):
 
         classes = 'subnet-node' if ipaddress.ip_address(ip) in network else 'internet-node'
         label = entities[ip]["hostname"] if entities[ip]["hostname"] != None else ip
-        graphData.append({'data': {'id': ip, 'label': label}, 'position': {'x': x, 'y': y }, 'classes': classes})
+        graphData.append({'data': {'id': ip, 'label': label, 'info': info["entities"][ip] }, 'position': {'x': x, 'y': y }, 'classes': classes})
 
     for edge in interactions:
         subnet_host_gateway_relation = (ipaddress.ip_address(edge[0]) in network) and (ipaddress.ip_address(edge[1]) in network) and (edge[0] == '192.168.1.1')
         graphData.append({'data': {'source': edge[0], 'target': edge[1]}, 'classes': ('subnet-edge' if subnet_host_gateway_relation else 'internet-edge') })
 
     cytoscape_element = cyto.Cytoscape(
-            id = 'network-graphs-x-cytoscape',
+            id = 'network-graph-cytoscape',
             elements = graphData,
             layout = {
                 'name': 'preset'
             },
             style = {
-                'height':'1000px',
+                'height':'800px',
                 'width':'100%',
             },
             # TODO: generate css classes for different subnets
@@ -138,13 +135,33 @@ app.layout = html.Div(
 
                 multiple=False
             ),
-            html.Div(id='output-data-upload')
+            html.Div(id='output-data-upload'),
+            html.Div(
+                id='entity-info',
+                style={
+                    'widht': '100%',
+                    'height': '200px',
+                    'backgroundColor': '#BBB'
+                }
+            )
         ],
         style = {
             'background':'radial-gradient(#FFFFFF 25%, #BBBBBB 95%)',
             'width': '100%',
             'height': '100%'
         })
+
+def process_pcap(capture_file_path):
+    info = packet_analyzer.PacketAnalyzer(capture_file_path).analyze()
+    file_stem = Path(capture_file_path).stem
+    time_string = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+    #analysis_file_name = f'{file_stem}{time_string}.json'
+    analysis_file_name = f'{file_stem}.json'
+
+    with open(os.path.join(pcap_analysis_path, analysis_file_name) , "w" ) as f:
+        json.dump(info , f, indent=4)
+
+    return info
 
 @app.callback(Output('output-data-upload', 'children'),
               [Input('upload-data', 'contents')],
@@ -164,17 +181,17 @@ def update_output(content, uploaded_file_name, date):
     # TODO: currently files pile up and get overwritten
     with open(capture_file_path, "wb") as fh:
         fh.write(binary_data)
-    
-    info = packet_analyzer.PacketAnalyzer(capture_file_path).analyze()
 
-    file_stem = Path(uploaded_file_name).stem
-    time_string = datetime.utcnow().strftime('%Y%m%d%H%M%S')
-    analysis_file_name = f'{file_stem}{time_string}.json'
+    return get_graph_element_data(process_pcap(capture_file_path))
 
-    with open(os.path.join(pcap_analysis_path, analysis_file_name) , "w" ) as f:
-        json.dump(info , f, indent=4)
+@app.callback(
+    Output('entity-info', 'children'),
+    [Input('network-graph-cytoscape', 'tapNodeData')]
+)
+def update_output(node_data):
+    return str(node_data["info"])
 
-    return get_graph_element_data(info)
+info = process_pcap("C:\\Users\\Carlos\\Desktop\\Carlos Kassis\\PCAPs\\http.pcap")
 
 if __name__ == "__main__":
    app.run_server(debug=True)
