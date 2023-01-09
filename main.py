@@ -191,7 +191,5 @@ def update_output(content, uploaded_file_name, date):
 def update_output(node_data):
     return str(node_data["info"])
 
-info = process_pcap("C:\\Users\\Carlos\\Desktop\\Carlos Kassis\\PCAPs\\http.pcap")
-
 if __name__ == "__main__":
    app.run_server(debug=True)
