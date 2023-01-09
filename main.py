@@ -30,7 +30,7 @@ for pkt in scapy_cap:
     #    macToIp[pkt[ARP].hwdst] = pkt[ARP].pdst
     #    hostToGatewayTuples.add((pkt[ARP].hwdst, pkt[ARP].hwsrc))"""
 
-app = Dash(__name__)
+app = Dash(__name__, suppress_callback_exceptions=True)
 desktop_path = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
 pcap_upload_path = os.path.join(desktop_path, 'PcapUploads')
 pcap_analysis_path = os.path.join(desktop_path, 'PcapAnalysis')
