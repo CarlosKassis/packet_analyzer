@@ -1,16 +1,12 @@
-
+import numpy as np
 
 def get_ip_display_positions(info):
 
-    positions = dict()
+    ip_to_position = dict()
 
-    index = 0
-    for ip in info["entities"]:
-        x = index % 10
-        y = index // 10
-        x *= 50
-        y *= 50
-        positions[ip] = (x, y)
-        index += 1
+    positions = np.random.uniform([0, 0], [1500, 1500], size=(len(info["entities"]), 2))
 
-    return positions
+    for ip, position in zip(info["entities"], positions):
+        ip_to_position[ip] = (position[0], position[1])
+    
+    return ip_to_position
