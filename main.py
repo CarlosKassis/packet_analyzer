@@ -11,25 +11,6 @@ from scapy.all import *
 from scapy import *
 from werkzeug.utils import secure_filename
 
-# might start using DHCP and ARP to identify hosts and gateways
-"""scapy_cap = PcapReader(pcapPath)
-for pkt in scapy_cap:
-    continue
-    if pkt.haslayer(IP):
-        ip1, ip2 = pkt[IP].src, pkt[IP].dst
-        ip1,ip2 = ip1,ip2 if ip1 < ip2 else ip2,ip1
-
-        interactions += (ip1, ip2)
-        ips += [ip1, ip2]
-    
-    #print(packet.getlayer(ARP).op)
-    #if pkt.haslayer(IP) and pkt[ARP].op == 2:
-    #    nodes.add(pkt[ARP].hwsrc)
-    #    nodes.add(pkt[ARP].hwdst)
-    #    macToIp[pkt[ARP].hwsrc] = pkt[ARP].psrc
-    #    macToIp[pkt[ARP].hwdst] = pkt[ARP].pdst
-    #    hostToGatewayTuples.add((pkt[ARP].hwdst, pkt[ARP].hwsrc))"""
-
 app = Dash(__name__, suppress_callback_exceptions=True)
 desktop_path = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
 pcap_upload_path = os.path.join(desktop_path, 'PcapUploads')
@@ -195,6 +176,8 @@ def update_output(content, uploaded_file_name, date):
     [Input('network-graph-cytoscape', 'tapNodeData')]
 )
 def update_output(node_data):
+    if not node_data:
+        return ""
     return str(node_data["info"])
 
 if __name__ == "__main__":

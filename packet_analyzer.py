@@ -152,10 +152,15 @@ class PacketAnalyzer:
 
         entities = dict()
         for ip in self.ips:
+
+            ip_subnet = ipaddress.ip_network(f'{ip}/{MOST_LIKELY_SUBNET_MASK}' if ip not in self.ip_to_subnet else self.ip_to_subnet[ip], strict=False)
+            if  ip == str(ip_subnet.broadcast_address):
+                continue
+
             entity_info = dict()
             entity_info["mac"] = "Unknown" if ip not in self.ip_to_mac else self.ip_to_mac[ip]
             entity_info["hostname"] = None if ip not in self.ip_to_hostname else self.ip_to_hostname[ip]
-            entity_info["subnet"] = str(ipaddress.ip_network(f'{ip}/{MOST_LIKELY_SUBNET_MASK}', strict=False)) if ip not in self.ip_to_subnet else self.ip_to_subnet[ip]
+            entity_info["subnet"] = str(ip_subnet)
             entity_info["services"] = list() if ip not in self.ip_to_services else list(self.ip_to_services[ip])
             entity_info["os"] = "Unknown" if ip not in self.ip_to_os else self.ip_to_os[ip]
             entities[ip] = entity_info
