@@ -33,26 +33,13 @@ def get_graph_element_data(info):
 
     positions = network_positioner.get_ip_display_positions(info)
     for ip in entities:
-        """in_subnet = ipaddress.ip_address(ip) in network
-        if in_subnet:
-            angle_subnet += 360.0 / subnetSize
-        else:
-            angle_internet += 360.0 / internetSize
-        
-        radius = 200 if in_subnet else 1000
-        angle = angle_subnet if in_subnet else angle_internet
-        gateway_address = '192.168.1.1'
-        x = 0 if ip == gateway_address else radius * math.cos(angle * (math.pi / 180.0))
-        y = 0 if ip == gateway_address else radius * math.sin(angle * (math.pi / 180.0))"""
-
         classes = 'subnet-node' if ipaddress.ip_address(ip) in network else 'internet-node'
         label = entities[ip]["hostname"] if entities[ip]["hostname"] != None else ip
         position = positions[ip]
         graphData.append({'data': {'id': ip, 'label': label, 'info': info["entities"][ip] }, 'position': {'x': position[0], 'y': position[1] }, 'classes': classes})
 
     for edge in info["interactions"]:
-        subnet_host_gateway_relation = (ipaddress.ip_address(edge[0]) in network) and (ipaddress.ip_address(edge[1]) in network) and (edge[0] == '192.168.1.1')
-        graphData.append({'data': {'source': edge[0], 'target': edge[1]}, 'classes': ('subnet-edge' if subnet_host_gateway_relation else 'internet-edge') })
+        graphData.append({'data': {'source': edge[0], 'target': edge[1]}, 'classes': 'edge' })
 
     cytoscape_element = cyto.Cytoscape(
             id = 'network-graph-cytoscape',
@@ -63,13 +50,14 @@ def get_graph_element_data(info):
             style = {
                 'height':'800px',
                 'width':'100%',
+                'wheelSensitivity': '0.1'
             },
             # TODO: generate css classes for different subnets
             stylesheet=[
                 {
-                    'selector': '.subnet-edge',
+                    'selector': '.edge',
                     'style': {
-                        'line-color': 'blue'
+                        'line-color': 'black'
                     }
                 },
                 {
@@ -77,13 +65,6 @@ def get_graph_element_data(info):
                     'style': {
                         'content': 'data(label)',
                         'background-color': 'blue'
-                        #'border-color': 'blue'
-                    }
-                },
-                {
-                    'selector': '.internet-edge',
-                    'style': {
-                        'line-color': 'orange'
                     }
                 },
                 {
