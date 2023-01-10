@@ -11,10 +11,12 @@ from scapy.all import *
 from scapy import *
 from werkzeug.utils import secure_filename
 
+DESKTOP_PATH = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+PCAP_UPLOAD_PATH = os.path.join(DESKTOP_PATH, 'PcapUploads')
+PCAP_ANALYSIS_PATH = os.path.join(DESKTOP_PATH, 'PcapAnalysis')
+
+# Initialize Dash
 app = Dash(__name__, suppress_callback_exceptions=True)
-desktop_path = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
-pcap_upload_path = os.path.join(desktop_path, 'PcapUploads')
-pcap_analysis_path = os.path.join(desktop_path, 'PcapAnalysis')
 
 def get_graph_element_data(info):
     entities = info["entities"]
@@ -138,18 +140,33 @@ app.layout = html.Div(
             'height': '100%'
         })
 
-def process_pcap(capture_file_path):
-    info = packet_analyzer.PacketAnalyzer(capture_file_path).analyze()
-    file_stem = Path(capture_file_path).stem
-    time_string = datetime.utcnow().strftime('%Y%m%d%H%M%S')
-    #analysis_file_name = f'{file_stem}{time_string}.json'
-    analysis_file_name = f'{file_stem}.json'
 
-    with open(os.path.join(pcap_analysis_path, analysis_file_name) , "w" ) as f:
+def process_pcap(capture_file_path, analysis_path):
+    info = packet_analyzer.PacketAnalyzer(capture_file_path).analyze()
+
+    with open(analysis_path , "w" ) as f:
         json.dump(info , f, indent=4)
 
     return info
 
+def save_binary_to_file_and_ready_analysis(binary_data, filename):
+    os.makedirs(PCAP_UPLOAD_PATH, exist_ok = True)
+    os.makedirs(PCAP_ANALYSIS_PATH, exist_ok = True)
+    
+    filename_stem = Path(filename).stem
+    time_string = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+    analysis_file_name = f'{filename_stem}{time_string}.json'
+
+    capture_file_path = os.path.join(PCAP_UPLOAD_PATH, secure_filename(f'{filename_stem}_{time_string}.{filename.split(".")[-1]}'))
+    analysis_file_path = os.path.join(PCAP_ANALYSIS_PATH, secure_filename(f'{filename_stem}_{time_string}.json'))
+
+    with open(capture_file_path, "wb") as fh:
+        fh.write(binary_data)
+    
+    return (capture_file_path, analysis_file_path)
+
+
+# Callback for file upload
 @app.callback(Output('output-data-upload', 'children'),
               [Input('upload-data', 'contents')],
               [State('upload-data', 'filename'),
@@ -158,19 +175,15 @@ def update_output(content, uploaded_file_name, date):
     if content is None:
         return
 
-    os.makedirs(pcap_upload_path, exist_ok = True)
-    os.makedirs(pcap_analysis_path, exist_ok = True)
-
-    capture_file_path = os.path.join(pcap_upload_path, secure_filename(uploaded_file_name))
     octet_stream = content[content.index(',')+1:] # string looks like "octet-stream;base64 ....,[BASE64_DATA]"
     binary_data = base64.b64decode(octet_stream)
+    
+    (capture_file_path, analysis_path) = save_binary_to_file_and_ready_analysis(binary_data, uploaded_file_name)
+    info = process_pcap(capture_file_path, analysis_path)
+    return get_graph_element_data(info)
 
-    # TODO: currently files pile up and get overwritten
-    with open(capture_file_path, "wb") as fh:
-        fh.write(binary_data)
 
-    return get_graph_element_data(process_pcap(capture_file_path))
-
+# Callback for clicking nodes
 @app.callback(
     Output('entity-info', 'children'),
     [Input('network-graph-cytoscape', 'tapNodeData')]
@@ -179,6 +192,7 @@ def update_output(node_data):
     if not node_data:
         return ""
     return str(node_data["info"])
+
 
 if __name__ == "__main__":
    app.run_server(debug=True)
