@@ -5,6 +5,7 @@ import dash_cytoscape as cyto
 import ipaddress
 import json
 import math
+import network_positioner
 import packet_analyzer
 from pathlib import Path
 from scapy.all import *
@@ -19,9 +20,8 @@ PCAP_ANALYSIS_PATH = os.path.join(DESKTOP_PATH, 'PcapAnalysis')
 app = Dash(__name__, suppress_callback_exceptions=True)
 
 def get_graph_element_data(info):
-    entities = info["entities"]
-    interactions = info["interactions"]
 
+    entities = info["entities"]
     network = ipaddress.ip_network('192.168.0.0/16') # hardcoded subnet, need to add support later for multiple subnets
 
     graphData = []
@@ -31,8 +31,9 @@ def get_graph_element_data(info):
     # TODO: class for position generation, ASAP!
     angle_subnet, angle_internet = 0.0, 0.0
 
+    positions = network_positioner.get_ip_display_positions(info)
     for ip in entities:
-        in_subnet = ipaddress.ip_address(ip) in network
+        """in_subnet = ipaddress.ip_address(ip) in network
         if in_subnet:
             angle_subnet += 360.0 / subnetSize
         else:
@@ -42,13 +43,14 @@ def get_graph_element_data(info):
         angle = angle_subnet if in_subnet else angle_internet
         gateway_address = '192.168.1.1'
         x = 0 if ip == gateway_address else radius * math.cos(angle * (math.pi / 180.0))
-        y = 0 if ip == gateway_address else radius * math.sin(angle * (math.pi / 180.0))
+        y = 0 if ip == gateway_address else radius * math.sin(angle * (math.pi / 180.0))"""
 
         classes = 'subnet-node' if ipaddress.ip_address(ip) in network else 'internet-node'
         label = entities[ip]["hostname"] if entities[ip]["hostname"] != None else ip
-        graphData.append({'data': {'id': ip, 'label': label, 'info': info["entities"][ip] }, 'position': {'x': x, 'y': y }, 'classes': classes})
+        position = positions[ip]
+        graphData.append({'data': {'id': ip, 'label': label, 'info': info["entities"][ip] }, 'position': {'x': position[0], 'y': position[1] }, 'classes': classes})
 
-    for edge in interactions:
+    for edge in info["interactions"]:
         subnet_host_gateway_relation = (ipaddress.ip_address(edge[0]) in network) and (ipaddress.ip_address(edge[1]) in network) and (edge[0] == '192.168.1.1')
         graphData.append({'data': {'source': edge[0], 'target': edge[1]}, 'classes': ('subnet-edge' if subnet_host_gateway_relation else 'internet-edge') })
 
@@ -141,11 +143,12 @@ app.layout = html.Div(
         })
 
 
-def process_pcap(capture_file_path, analysis_path):
+def process_pcap(capture_file_path, analysis_path=None):
     info = packet_analyzer.PacketAnalyzer(capture_file_path).analyze()
 
-    with open(analysis_path , "w" ) as f:
-        json.dump(info , f, indent=4)
+    if analysis_path:
+        with open(analysis_path , "w" ) as f:
+            json.dump(info , f, indent=4)
 
     return info
 
@@ -155,7 +158,6 @@ def save_binary_to_file_and_ready_analysis(binary_data, filename):
     
     filename_stem = Path(filename).stem
     time_string = datetime.utcnow().strftime('%Y%m%d%H%M%S')
-    analysis_file_name = f'{filename_stem}{time_string}.json'
 
     capture_file_path = os.path.join(PCAP_UPLOAD_PATH, secure_filename(f'{filename_stem}_{time_string}.{filename.split(".")[-1]}'))
     analysis_file_path = os.path.join(PCAP_ANALYSIS_PATH, secure_filename(f'{filename_stem}_{time_string}.json'))

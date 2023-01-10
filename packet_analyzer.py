@@ -3,7 +3,8 @@ from scapy import *
 import ipaddress
 from scapy.layers.http import HTTP, HTTPRequest
 import time
-import concurrent.futures
+
+GUESSED_SUBNET_MASK = '255.255.255.0'
 
 class PacketAnalyzer:
     def __init__(self, capture_file_path):
@@ -12,11 +13,13 @@ class PacketAnalyzer:
         self.ips = set()
         self.ip_to_hostname = dict()
         self.ip_to_services = dict()
-        self.interactions = set()
-        self.ip_to_subnet = dict()
-        self.subnet_to_info = dict()
         self.ip_to_os = dict()
         self.ip_to_mac = dict()
+
+        self.interactions = set()
+
+        self.real_subnet_to_info = dict()
+        self.guessed_subnets = set()
 
     # Use DNS to get hostname associated with IP
     def try_get_ip_hostname_info(self, packet):
@@ -32,7 +35,7 @@ class PacketAnalyzer:
                 hostname = str(dnsrr.rrname, 'utf8')
                 ip = dnsrr.rdata
 
-                self.ip_entity_info["hostname"]
+                self.ip_to_hostname[ip] = hostname
         except:
             pass
 
@@ -55,9 +58,9 @@ class PacketAnalyzer:
             return
 
         if not self.black_listed_ip(packet[IP].src):
-            self.ips.add(packet[IP].src)
+            self.ips.add(ipaddress.ip_address(packet[IP].src))
         if not self.black_listed_ip(packet[IP].dst):
-            self.ips.add(packet[IP].dst)
+            self.ips.add(ipaddress.ip_address(packet[IP].dst))
 
 
     # Check source and destination IP
@@ -65,13 +68,13 @@ class PacketAnalyzer:
         if not IP in packet:
             return
 
-        ip1 = packet[IP].src
-        ip2 = packet[IP].dst
-
-        if self.black_listed_ip(ip1) or self.black_listed_ip(ip2):
+        if self.black_listed_ip(packet[IP].src) or self.black_listed_ip(packet[IP].dst):
             return
 
-        self.interactions.add(( ip1, ip2 ) if ipaddress.ip_address(ip1) < ipaddress.ip_address(ip2) else ( ip2, ip1 ))
+        ip1 = ipaddress.ip_address(packet[IP].src)
+        ip2 = ipaddress.ip_address(packet[IP].dst)
+
+        self.interactions.add(( ip1, ip2 ) if ip1 < ip2 else ( ip2, ip1))
 
     # Check used ports for TCP/UDP
     def try_get_open_service_port(self, packet):
@@ -94,16 +97,14 @@ class PacketAnalyzer:
         (self.ip_to_services[source_ip]).add(("TCP" if TCP in packet else "UDP", port))
 
 
-    # Use DHCP to get subnet info
-    def try_get_subnet_info(self, packet):
+    # Use DHCP to get real subnet info
+    def try_get_real_subnet_info(self, packet):
         if not DHCP in packet:
             return
         
         BOOTP_REPLY = 2
         if packet[BOOTP].op != BOOTP_REPLY:
             return
-
-        ip = packet[IP].dst
 
         gateway = None
         subnet_mask = None
@@ -115,15 +116,16 @@ class PacketAnalyzer:
 
         if gateway == None or subnet_mask == None:
             return
-
-        subnet = ipaddress.ip_network(f'{gateway}/{subnet_mask}', strict=False)
-        subnet_str = str(subnet)
-        self.ip_to_subnet[ip] = subnet_str
         
-        if subnet_str in self.subnet_to_info:
-            (self.subnet_to_info[subnet_str])["size"] += 1
-        else:
-            self.subnet_to_info[subnet_str] = { "gateway": gateway, "size": 1}
+        self.real_subnet_to_info[ipaddress.ip_network(f'{gateway}/{subnet_mask}', strict=False)] = { "gateway": gateway, "type": "real", "entities": []}
+
+    # Use DHCP to get real subnet info
+    def try_guess_subnet_info(self, packet):
+        if not IP in packet:
+            return
+        
+        self.guessed_subnets.add(ipaddress.ip_network(f'{packet[IP].src}/{GUESSED_SUBNET_MASK}', strict=False))
+        self.guessed_subnets.add(ipaddress.ip_network(f'{packet[IP].dst}/{GUESSED_SUBNET_MASK}', strict=False))
 
     def try_get_mac_info(self, packet):
         if not ARP in packet:
@@ -134,9 +136,8 @@ class PacketAnalyzer:
         
         self.ip_to_mac[str(packet[ARP].psrc)] = str(packet[ARP].hwsrc)
 
-    def get_subnet_of_ip(self, ip):
-        MOST_LIKELY_SUBNET_MASK = '255.255.255.0'
-        return ipaddress.ip_network(f'{ip}/{MOST_LIKELY_SUBNET_MASK}' if ip not in self.ip_to_subnet else self.ip_to_subnet[ip], strict=False)
+    def get_guessed_subnet_for_ip(self, ip):
+        return ipaddress.ip_network(f'{ip}/{GUESSED_SUBNET_MASK}' if ip not in self.ip_to_subnet else self.ip_to_subnet[ip], strict=False)
 
 
     def analyze(self):
@@ -151,28 +152,55 @@ class PacketAnalyzer:
             self.try_get_ip_hostname_info(packet)
             self.try_get_interaction(packet)
             self.try_get_open_service_port(packet)
-            self.try_get_subnet_info(packet)
+            self.try_get_real_subnet_info(packet)
+            self.try_guess_subnet_info(packet)
             self.try_get_mac_info(packet)
 
         info = dict()
 
         entities = dict()
+        guessed_subnet_to_info = dict()
         for ip in self.ips:
-            ip_subnet = self.get_subnet_of_ip(ip)
-            if ip == str(ip_subnet.broadcast_address):
-                continue
-
             entity_info = dict()
             entity_info["mac"] = "Unknown" if ip not in self.ip_to_mac else self.ip_to_mac[ip]
             entity_info["hostname"] = None if ip not in self.ip_to_hostname else self.ip_to_hostname[ip]
-            entity_info["subnet"] = str(ip_subnet)
             entity_info["services"] = list() if ip not in self.ip_to_services else list(self.ip_to_services[ip])
             entity_info["os"] = "Unknown" if ip not in self.ip_to_os else self.ip_to_os[ip]
-            entities[ip] = entity_info
+
+            found_subnet_for_ip = False
+            for subnet in self.real_subnet_to_info:
+                if ip not in subnet:
+                    continue
+
+                subnet_data = self.real_subnet_to_info[subnet]
+
+                subnet_data["entities"].append(ip)
+                entity_info["subnet"] = str(subnet)
+                found_subnet_for_ip = True
+                break
+            
+            if not found_subnet_for_ip:
+                guessed_subnet_for_ip = ipaddress.ip_network(f'{str(ip)}/{GUESSED_SUBNET_MASK}', strict=False)
+                if not ip in guessed_subnet_for_ip:
+                    print(f"Weird, no subnet found for {ip}")
+                    continue
+
+                if guessed_subnet_for_ip not in guessed_subnet_to_info:
+                    guessed_subnet_to_info[guessed_subnet_for_ip] = { "type": "guessed", "entities": []}
+
+                (guessed_subnet_to_info[guessed_subnet_for_ip]["entities"]).append(str(ip))
+                entity_info["subnet"] = str(guessed_subnet_for_ip)
+            
+            entities[str(ip)] = entity_info
         
         info["entities"] = entities
-        info["interactions"] = [(ip1, ip2) for (ip1, ip2) in self.interactions if ip1 != str(self.get_subnet_of_ip(ip1).broadcast_address) and ip2 != str(self.get_subnet_of_ip(ip2).broadcast_address)]
-        info["subnets"] = self.subnet_to_info
+        info["interactions"] = [(str(ip1), str(ip2)) for (ip1, ip2) in self.interactions]
+        
+        subnets = dict()
+        for subnet in guessed_subnet_to_info:
+            subnets[str(subnet)] = guessed_subnet_to_info[subnet]
+
+        info["subnets"] = subnets
 
         print(f'time took to process file: {time.time() - curr_time}')
 
