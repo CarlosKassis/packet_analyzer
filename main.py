@@ -6,6 +6,7 @@ import ipaddress
 import json
 import math
 import network_positioner
+import network_colorizer
 import packet_analyzer
 from pathlib import Path
 from scapy.all import *
@@ -22,24 +23,34 @@ app = Dash(__name__, suppress_callback_exceptions=True)
 def get_graph_element_data(info):
 
     entities = info["entities"]
-    network = ipaddress.ip_network('192.168.0.0/16') # hardcoded subnet, need to add support later for multiple subnets
 
     graphData = []
-    subnetSize = sum(1 for ip in entities if ipaddress.ip_address(ip) in network)
-    internetSize = len(entities) - subnetSize
-
-    # TODO: class for position generation, ASAP!
-    angle_subnet, angle_internet = 0.0, 0.0
-
-    positions = network_positioner.get_ip_display_positions(info)
+    node_positions = network_positioner.get_ip_display_positions(info)
+    subnet_colors = network_colorizer.get_subnet_node_colors(info)
     for ip in entities:
-        classes = 'subnet-node' if ipaddress.ip_address(ip) in network else 'internet-node'
+        node_class = f'subnet-node{int(ipaddress.ip_network(entities[ip]["subnet"]).network_address)}'
         label = entities[ip]["hostname"] if entities[ip]["hostname"] != None else ip
-        position = positions[ip]
-        graphData.append({'data': {'id': ip, 'label': label, 'info': info["entities"][ip] }, 'position': {'x': position[0], 'y': position[1] }, 'classes': classes})
+        position = node_positions[ip]
+        graphData.append({'data': {'id': ip, 'label': label, 'info': entities[ip] }, 'position': {'x': position[0], 'y': position[1] }, 'classes': node_class})
 
     for edge in info["interactions"]:
         graphData.append({'data': {'source': edge[0], 'target': edge[1]}, 'classes': 'edge' })
+
+    cyto_stylesheet = [{
+                    'selector': '.edge',
+                    'style': {
+                        'line-color': '#555'
+                    }
+                }]
+    
+    for subnet in subnet_colors:
+        cyto_stylesheet.append({
+                        'selector': f'.subnet-node{int(ipaddress.ip_network(subnet).network_address)}',
+                        'style': {
+                            'content': 'data(label)',
+                            'background-color': f'#{subnet_colors[subnet]}'
+                        }
+                    })
 
     cytoscape_element = cyto.Cytoscape(
             id = 'network-graph-cytoscape',
@@ -49,35 +60,14 @@ def get_graph_element_data(info):
             },
             style = {
                 'height':'800px',
-                'width':'100%',
-                'wheelSensitivity': '0.1'
+                'width':'100%'
             },
-            # TODO: generate css classes for different subnets
-            stylesheet=[
-                {
-                    'selector': '.edge',
-                    'style': {
-                        'line-color': '#555'
-                    }
-                },
-                {
-                    'selector': '.subnet-node',
-                    'style': {
-                        'content': 'data(label)',
-                        'background-color': 'blue'
-                    }
-                },
-                {
-                    'selector': '.internet-node',
-                    'style': {
-                        'content': 'data(label)',
-                        'background-color': 'orange'
-                    }
-                }
-            ]
+
+            stylesheet = cyto_stylesheet
         )
 
     return cytoscape_element
+
 
 app.layout = html.Div(
         [

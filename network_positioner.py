@@ -34,4 +34,4 @@ def get_ip_display_positions(info):
             ip_to_position[ip]  = (x, y)
             angle += 360.0 / SUBNET_SIZE
 
-    return ip_to_position
+    return dict(ip_to_position)
