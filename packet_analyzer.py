@@ -2,6 +2,8 @@ from scapy.all import *
 from scapy import *
 import ipaddress
 from scapy.layers.http import HTTP, HTTPRequest
+import time
+import concurrent.futures
 
 class PacketAnalyzer:
     def __init__(self, capture_file_path):
@@ -132,7 +134,13 @@ class PacketAnalyzer:
         
         self.ip_to_mac[str(packet[ARP].psrc)] = str(packet[ARP].hwsrc)
 
+    def get_subnet_of_ip(self, ip):
+        MOST_LIKELY_SUBNET_MASK = '255.255.255.0'
+        return ipaddress.ip_network(f'{ip}/{MOST_LIKELY_SUBNET_MASK}' if ip not in self.ip_to_subnet else self.ip_to_subnet[ip], strict=False)
+
+
     def analyze(self):
+        curr_time = time.time()
         try:
             packets = PcapReader(self.capture_file_path)
         except:
@@ -148,13 +156,10 @@ class PacketAnalyzer:
 
         info = dict()
 
-        MOST_LIKELY_SUBNET_MASK = '255.255.255.0'
-
         entities = dict()
         for ip in self.ips:
-
-            ip_subnet = ipaddress.ip_network(f'{ip}/{MOST_LIKELY_SUBNET_MASK}' if ip not in self.ip_to_subnet else self.ip_to_subnet[ip], strict=False)
-            if  ip == str(ip_subnet.broadcast_address):
+            ip_subnet = self.get_subnet_of_ip(ip)
+            if ip == str(ip_subnet.broadcast_address):
                 continue
 
             entity_info = dict()
@@ -166,7 +171,9 @@ class PacketAnalyzer:
             entities[ip] = entity_info
         
         info["entities"] = entities
-        info["interactions"] = list(self.interactions)
+        info["interactions"] = [(ip1, ip2) for (ip1, ip2) in self.interactions if ip1 != str(self.get_subnet_of_ip(ip1).broadcast_address) and ip2 != str(self.get_subnet_of_ip(ip2).broadcast_address)]
         info["subnets"] = self.subnet_to_info
+
+        print(f'time took to process file: {time.time() - curr_time}')
 
         return dict(info)
