@@ -14,6 +14,7 @@ class PacketAnalyzer:
         self.ip_to_subnet = dict()
         self.subnet_to_info = dict()
         self.ip_to_os = dict()
+        self.ip_to_mac = dict()
 
     # Use DNS to get hostname associated with IP
     def try_get_ip_hostname_info(self, packet):
@@ -122,6 +123,14 @@ class PacketAnalyzer:
         else:
             self.subnet_to_info[subnet_str] = { "gateway": gateway, "size": 1}
 
+    def try_get_mac_info(self, packet):
+        if not ARP in packet:
+            return
+
+        if packet[ARP].op != 2: # ARP is-at
+            return
+        
+        self.ip_to_mac[str(packet[ARP].psrc)] = str(packet[ARP].hwsrc)
 
     def analyze(self):
         try:
@@ -135,6 +144,7 @@ class PacketAnalyzer:
             self.try_get_interaction(packet)
             self.try_get_open_service_port(packet)
             self.try_get_subnet_info(packet)
+            self.try_get_mac_info(packet)
 
         info = dict()
 
@@ -143,6 +153,7 @@ class PacketAnalyzer:
         entities = dict()
         for ip in self.ips:
             entity_info = dict()
+            entity_info["mac"] = "Unknown" if ip not in self.ip_to_mac else self.ip_to_mac[ip]
             entity_info["hostname"] = None if ip not in self.ip_to_hostname else self.ip_to_hostname[ip]
             entity_info["subnet"] = str(ipaddress.ip_network(f'{ip}/{MOST_LIKELY_SUBNET_MASK}', strict=False)) if ip not in self.ip_to_subnet else self.ip_to_subnet[ip]
             entity_info["services"] = list() if ip not in self.ip_to_services else list(self.ip_to_services[ip])

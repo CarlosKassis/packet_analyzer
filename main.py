@@ -135,7 +135,13 @@ app.layout = html.Div(
 
                 multiple=False
             ),
-            html.Div(id='output-data-upload'),
+            html.Div(
+                id='output-data-upload',
+                style = {
+                    'height':'800px',
+                    'width':'100%',
+                },
+            ),
             html.Div(
                 id='entity-info',
                 style={
