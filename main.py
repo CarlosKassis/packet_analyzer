@@ -57,7 +57,7 @@ def get_graph_element_data(info):
                 {
                     'selector': '.edge',
                     'style': {
-                        'line-color': 'black'
+                        'line-color': '#555'
                     }
                 },
                 {

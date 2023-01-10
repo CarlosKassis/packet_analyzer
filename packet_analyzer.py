@@ -41,7 +41,7 @@ class PacketAnalyzer:
 
 
     def black_listed_ip(self, ip):
-        hardcoded_blacklisted_ips = { "0.0.0.0", "255.255.255.255",}
+        hardcoded_blacklisted_ips = { "0.0.0.0", "255.255.255.255", "239.255.255.250", "239.250.250.0" }
 
         if ip in hardcoded_blacklisted_ips:
             return True
