@@ -30,7 +30,7 @@ def get_graph_element_data(info):
     for ip in entities:
         node_class = f'subnet-node{int(ipaddress.ip_network(entities[ip]["subnet"]).network_address)}'
         label = entities[ip]["hostname"] if entities[ip]["hostname"] != None else ip
-        position = node_positions[ip]
+        position = node_positions[str(ip)]
         graphData.append({'data': {'id': ip, 'label': label, 'info': entities[ip] }, 'position': {'x': position[0], 'y': position[1] }, 'classes': node_class})
 
     for edge in info["interactions"]:
@@ -166,6 +166,7 @@ def update_output(node_data):
         return ""
     return str(node_data["info"])
 
+process_pcap("C:\\Users\\Carlos\\Desktop\\Carlos Kassis\\PCAPs\\bigFlows.pcap")
 
 if __name__ == "__main__":
    app.run_server(debug=True)

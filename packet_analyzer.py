@@ -92,9 +92,9 @@ class PacketAnalyzer:
 
         source_ip = packet[IP].src
         if not source_ip in self.ip_to_services:
-             self.ip_to_services[source_ip] = set()
+             self.ip_to_services[ipaddress.ip_address(source_ip)] = set()
 
-        (self.ip_to_services[source_ip]).add(("TCP" if TCP in packet else "UDP", port))
+        (self.ip_to_services[ipaddress.ip_address(source_ip)]).add(("TCP" if TCP in packet else "UDP", port))
 
 
     # Use DHCP to get real subnet info
@@ -147,14 +147,18 @@ class PacketAnalyzer:
         except:
             return "Invalid capture file"
 
+        startTime = time.time()
+        print("started!")
         for packet in packets:
-            self.try_add_distinct_node_ip(packet)
-            self.try_get_ip_hostname_info(packet)
-            self.try_get_interaction(packet)
-            self.try_get_open_service_port(packet)
-            self.try_get_real_subnet_info(packet)
-            self.try_guess_subnet_info(packet)
-            self.try_get_mac_info(packet)
+            continue
+            #self.try_add_distinct_node_ip(packet)
+            #self.try_get_ip_hostname_info(packet)
+            #self.try_get_interaction(packet)
+            #self.try_get_open_service_port(packet)
+            #self.try_get_real_subnet_info(packet)
+            #self.try_guess_subnet_info(packet)
+            #self.try_get_mac_info(packet)
+        print(f'finished after {time.time() - startTime}!')
 
         info = dict()
 

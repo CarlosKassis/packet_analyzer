@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{ADCAE9E0-6782-4043-A204-B8B27C356BC2}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>WindowsPcapAnalyzer</RootNamespace>
+    <AssemblyName>WindowsPcapAnalyzer</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <LangVersion>9.0</LangVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x86\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <LangVersion>9.0</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+    <OutputPath>bin\x86\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <LangVersion>9.0</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="PcapDotNet.Base, Version=0.10.0.20588, Culture=neutral, PublicKeyToken=4b6f3e583145a652, processorArchitecture=MSIL">
+      <HintPath>..\packages\PcapDotNet.0.10.2\lib\net40\PcapDotNet.Base.dll</HintPath>
+    </Reference>
+    <Reference Include="PcapDotNet.Core, Version=0.10.0.20632, Culture=neutral, PublicKeyToken=4b6f3e583145a652, processorArchitecture=x86">
+      <HintPath>..\packages\PcapDotNet.0.10.2\lib\net40\PcapDotNet.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="PcapDotNet.Core.Extensions, Version=0.10.0.20638, Culture=neutral, PublicKeyToken=4b6f3e583145a652, processorArchitecture=MSIL">
+      <HintPath>..\packages\PcapDotNet.0.10.2\lib\net40\PcapDotNet.Core.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="PcapDotNet.Packets, Version=0.10.0.20603, Culture=neutral, PublicKeyToken=4b6f3e583145a652, processorArchitecture=MSIL">
+      <HintPath>..\packages\PcapDotNet.0.10.2\lib\net40\PcapDotNet.Packets.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Utils\Entity.cs" />
+    <Compile Include="Utils\ZeekDnsEntity.cs" />
+    <Compile Include="Utils\PacketUtils.cs" />
+    <Compile Include="Dhcp\DHCPPacket.cs" />
+    <Compile Include="Dhcp\DHCPPacketParser.cs" />
+    <Compile Include="Dhcp\DHCPPacketView.cs" />
+    <Compile Include="Dhcp\DHCPServer.cs" />
+    <Compile Include="Dhcp\Enums\DHCPMessageType.cs" />
+    <Compile Include="Dhcp\Enums\DHCPOptionType.cs" />
+    <Compile Include="Dhcp\Enums\DHCPRelayAgentSuboption.cs" />
+    <Compile Include="Dhcp\Enums\HardwareAddressType.cs" />
+    <Compile Include="Dhcp\Enums\MessageOpCode.cs" />
+    <Compile Include="Dhcp\HardwareAddressTypes\ClientHardwareAddress.cs" />
+    <Compile Include="Dhcp\HardwareAddressTypes\EthernetClientHardwareAddress.cs" />
+    <Compile Include="Dhcp\HardwareAddressTypes\GenericClientHardwareAddress.cs" />
+    <Compile Include="Dhcp\Options\DHCPOption.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionBroadcastAddress.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionClassId.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionClasslessStaticRoute.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionClientId.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionDHCPMessage.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionDHCPMessageType.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionDHCPServerIdentifier.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionDomainName.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionDomainNameServer.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionHostname.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionIPAddressLeaseTime.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionMaximumMessageSize.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionNetBIOSOverTCPIPNameServer.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionNTPServer.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionPad.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionParameterList.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionRebindingTimeValue.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionRelayAgentInformation.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionRenewalTimeValue.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionRequestedIPAddress.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionRootPath.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionRouter.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionSubnetMask.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionTFTPBootfile.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionTFTPServer.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionTFTPServerName.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionTimeOffset.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionTimeServer.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionUnrecognized.cs" />
+    <Compile Include="Dhcp\Options\DHCPOptionVendorSpecificInformation.cs" />
+    <Compile Include="Dhcp\Options\VendorSpecificInformation\DHCPVendorSpecificInformation.cs" />
+    <Compile Include="Dhcp\Options\VendorSpecificInformation\DHCPVSIUnknown.cs" />
+    <Compile Include="Dhcp\Utility\ParserTools.cs" />
+    <Compile Include="Dhcp\Utility\RemoteAgentIdFormats\CiscoRouterTLV.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
